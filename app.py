@@ -27,10 +27,7 @@ df_values = st.sidebar.data_editor(df_values)
 
 # Page 1: Text, Images, and Tables
 if page == "Page 1: Info & Tables":
-    st.title("Page 1: Information and Tables")
-    
-    # Text and images
-    st.markdown("### Welcome op het dashboard van Sloterdijk Poort Noord")
+    st.title("Welkom op het dashboard van Sloterdijk Poort Noord")
     
 	#kolommen maken voor pagina
     cols = st.columns(3)
