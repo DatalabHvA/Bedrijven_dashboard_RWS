@@ -65,7 +65,7 @@ if page == "Page 1: Info & Tables":
 
 # Page 2: Interactive Stacked Area Graph
 elif page == "Page 2: Interactive Graph":
-    st.title("Page 2: Stacked Area Graph van Elektriciteitsvraag")
+    st.title("Inzicht in de bronnen en piekmomenten van de elektriciteitsvraag")
 	
     cols2 = st.columns(2)
 	
