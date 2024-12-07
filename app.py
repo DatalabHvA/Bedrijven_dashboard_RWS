@@ -11,6 +11,10 @@ st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Page 1: Info & Tables", "Page 2: Interactive Graph"])
 
 df = pd.read_excel('sloterdijk_master.xlsx')
+df['etruck_extra'] = 0
+df['etruck_extra'] = np.where(df['bedrijfsnaam'].str.contains('Sligro'),30,df['etruck_extra'])
+df['etruck_extra'] = np.where(df['bedrijfsnaam'].str.contains('Post NL SCB'),4,df['etruck_extra'])
+
 profielen = pd.read_excel('profielen_RWS.xlsx')
 jaarverbruik = pd.read_csv('table__84651NED.csv').loc[lambda d: d.Perioden == '2020*'][["Vrachtauto's en trekkers gewicht", 'Gemiddeld jaarkilometrage Totaal gemiddeld jaarkilometrage (aantal\xa0km)']]
 jaarverbruik.columns = ['type','kms/jaar']
@@ -20,7 +24,11 @@ jaarverbruik.set_index('type', inplace = True)
 
 verbruik_cat1 = df.groupby('categorie1').jaarverbruik.sum()
 
-df_values = pd.DataFrame({'type' : ['Aantal trucks','Aantal bestelwagens'],'Aantal':[df['trucks'].sum(),df['bestelbussen'].sum()]})
+df_values = pd.DataFrame({'Jaar' : [2024,2030,2035,2050],
+'Aantal trucks' : [df['trucks'].sum(), (df['trucks'].sum() - int(0.16*df['trucks'].sum())), (df['trucks'].sum() - int(0.42*df['trucks'].sum())), (df['trucks'].sum() - int(0.75*df['trucks'].sum()))],
+'Aantal bestelwagens' : [df['bestelbussen'].sum(),(df['bestelbussen'].sum() - int(0.20*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - int(0.50*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - (1.0*df['bestelbussen'].sum()))],
+'Aantal e-trucks' : [df['etrucks'].sum(), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.16*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.42*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + (0.75*df['trucks'].sum()))],
+'Aantal e-bestelwagens': [df['ebestel'].sum(),(df['ebestel'].sum() + int(0.20*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(0.50*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(1.0*df['bestelbussen'].sum()))]})
 
 st.sidebar.write('Totale aantallen voertuigen')
 df_values = st.sidebar.data_editor(df_values)
@@ -34,12 +42,12 @@ if page == "Page 1: Info & Tables":
 
 	#afbeeldingen en getallen voertuigen toevoegen
     icon_bestelwagen = "https://raw.githubusercontent.com/isamuu/dashboard/main/Icons%20dashboard/db%20bestelwagen.jpg"
-    aantal_bestelwagen = int(df["bestelbussen"].sum())
+    aantal_bestelwagen = int(df["bestelbussen"].sum() + df["ebestel"].sum())
     icon_bestelwagen_html = f'''<img src="{icon_bestelwagen}" width="150" style="display: block; margin: auto;">
     <p style="text-align: center; font-size: 24px;">{aantal_bestelwagen} Bestelwagens</p>'''
 
     icon_truck = "https://raw.githubusercontent.com/isamuu/dashboard/main/Icons%20dashboard/db%20truck.jpg"
-    aantal_truck = int(df["trucks"].sum())
+    aantal_truck = int(df["trucks"].sum() + df["etrucks"].sum())
     icon_truck_html = f'''<img src="{icon_truck}" width="150" style="display: block; margin: auto;">
     <p style="text-align: center; font-size: 24px;">{aantal_truck} Trucks</p>'''
     
@@ -67,20 +75,58 @@ if page == "Page 1: Info & Tables":
 elif page == "Page 2: Interactive Graph":
     st.title("Inzicht in de bronnen en piekmomenten van de elektriciteitsvraag")
 	
-    cols2 = st.columns(2)
+    st.write("## De ontwikkeling van de energievraag over de tijd")
 	
-    resolution = cols2[0].radio("Select Time Resolution", ["Hourly", "Daily", "Monthly"])
-    smart = cols2[1].radio("Select charging strategy", ["Normaal", "Smart charging"])
+    df_tijd = df[['bedrijfsnaam','trucks','bestelbussen','etrucks','ebestel','etruck_extra', 'jaarkilometrage_truck','jaarkilometrage_bestel']]
+    df_tijd['2024_etrucks'] = df_tijd['etrucks'] * df_tijd['jaarkilometrage_truck'] * 1.2
+    df_tijd['2030_etrucks'] = (df_tijd['etrucks'] + df_tijd['etruck_extra'] + (0.16*df_tijd['trucks'])) * df_tijd['jaarkilometrage_truck'] * 1.2
+    df_tijd['2035_etrucks'] = (df_tijd['etrucks'] + df_tijd['etruck_extra'] + (0.42*df_tijd['trucks'])) * df_tijd['jaarkilometrage_truck'] * 1.2
+    df_tijd['2050_etrucks'] = (df_tijd['etrucks'] + df_tijd['etruck_extra'] + (0.75*df_tijd['trucks'])) * df_tijd['jaarkilometrage_truck'] * 1.2
+    df_tijd['2024_ebestel'] = df_tijd['ebestel'] * df_tijd['jaarkilometrage_bestel'] * 0.4
+    df_tijd['2030_ebestel'] = (df_tijd['ebestel'] + (0.20*df_tijd['bestelbussen'])) * df_tijd['jaarkilometrage_bestel'] * 0.4
+    df_tijd['2035_ebestel'] = (df_tijd['ebestel'] + (0.50*df_tijd['bestelbussen'])) * df_tijd['jaarkilometrage_bestel'] * 0.4
+    df_tijd['2050_ebestel'] = (df_tijd['ebestel'] + (1*df_tijd['bestelbussen'])) * df_tijd['jaarkilometrage_bestel'] * 0.4
+    
+    df_tijd_truck = df_tijd[['2024_etrucks','2030_etrucks','2035_etrucks','2050_etrucks']].melt(var_name = 'var',value_name = 'energie')
+    df_tijd_bestel = df_tijd[['2024_ebestel','2030_ebestel','2035_ebestel','2050_ebestel']].melt(var_name = 'var',value_name = 'energie')
+    df_tijd_mobi = pd.concat([df_tijd_truck,df_tijd_bestel], ignore_index = True).groupby('var')['energie'].sum().reset_index()
+    
+    df_tijd_mobi['jaar'] = df_tijd_mobi['var'].apply(lambda x: x.split('_')[0])
+    df_tijd_mobi['bron'] = df_tijd_mobi['var'].apply(lambda x: x.split('_')[1])
+    df_tijd_mobi = df_tijd_mobi.drop('var', axis = 1)
+	
+    df_tijd_pand = df[['bedrijfsnaam','jaarverbruik']].rename(columns = {'bedrijfsnaam' : 'bron', 'jaarverbruik' : 'energie'}).assign(jaar = "[2024,2030,2035,2050]")
+    df_tijd_pand['jaar'] = df_tijd_pand['jaar'].apply(lambda x: eval(x))
+    df_tijd_pand = df_tijd_pand.explode(column = 'jaar')
+
+    st.write(f"Totaal aantal e-trucks in 2050 = {int(df_tijd['etrucks'].sum() + df_tijd['etruck_extra'].sum() + (0.75*df_tijd['trucks'].sum()))}")
+	
+    df_tijd_totaal = pd.concat([df_tijd_pand[['energie','jaar','bron']], df_tijd_mobi], ignore_index = True)
+	
+    # Plot stacked area chart
+    fig = px.area(
+        df_tijd_totaal, x="jaar", y="energie", color="bron",
+        title=f"Stacked Area Chart over time"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+	
+    cols2 = st.columns(3)
+	
+    resolution = cols2[0].radio("Selecteer tijdsresolutie", ["Hourly", "Daily", "Monthly"])
+    smart = cols2[1].radio("Selecteer laadstrategie", ["Normaal", "Smart charging"])
+    year = cols2[2].radio("Selecteer jaar", [2024, 2030, 2035, 2050])
 	
     if smart == "Normaal":
         drop_cols = ['truck_smart','bestel_smart']
     elif smart == "Smart charging":
         drop_cols = ['truck','bestel']
+	
 
-    verbruik_uur_mobiliteit = pd.DataFrame({'truck' : profielen['LADEN NORMAAL']*df_values.set_index('type').loc['Aantal trucks']['Aantal'] * 1.2 * jaarverbruik['kms/jaar'].loc['Gewicht volle wagen:10 000 tot 20 000 kg'] ,
-                                      'truck_smart' : profielen['LADEN SMART']*df_values.set_index('type').loc['Aantal trucks']['Aantal'] * 1.2 * jaarverbruik['kms/jaar'].loc['Gewicht volle wagen:10 000 tot 20 000 kg'],
-                                      'bestel' : profielen['LADEN NORMAAL']*df_values.set_index('type').loc['Aantal bestelwagens']['Aantal'] * 0.3 * jaarverbruik['kms/jaar'].loc['bestelbus'],
-                                      'bestel_smart' : profielen['LADEN SMART']*df_values.set_index('type').loc['Aantal bestelwagens']['Aantal'] * 0.3 * jaarverbruik['kms/jaar'].loc['bestelbus'],
+    verbruik_uur_mobiliteit = pd.DataFrame({'truck' : profielen['LADEN NORMAAL']* df_values.set_index('Jaar').loc[year]['Aantal e-trucks'] * 1.2 * jaarverbruik['kms/jaar'].loc['Gewicht volle wagen:10 000 tot 20 000 kg'] ,
+                                      'truck_smart' : profielen['LADEN SMART']*df_values.set_index('Jaar').loc[year]['Aantal e-trucks'] * 1.2 * jaarverbruik['kms/jaar'].loc['Gewicht volle wagen:10 000 tot 20 000 kg'],
+                                      'bestel' : profielen['LADEN NORMAAL']*df_values.set_index('Jaar').loc[year]['Aantal e-bestelwagens'] * 0.4 * jaarverbruik['kms/jaar'].loc['bestelbus'],
+                                      'bestel_smart' : profielen['LADEN SMART']*df_values.set_index('Jaar').loc[year]['Aantal e-bestelwagens'] * 0.4 * jaarverbruik['kms/jaar'].loc['bestelbus'],
 									  'datetime' : profielen['datetime']}).set_index('datetime')
     # Resolution selection
 	
@@ -106,3 +152,5 @@ elif page == "Page 2: Interactive Graph":
         title=f"Stacked Area Chart ({resolution} Resolution)"
     )
     st.plotly_chart(fig, use_container_width=True)
+	
+	
