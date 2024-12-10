@@ -24,15 +24,6 @@ jaarverbruik.set_index('type', inplace = True)
 
 verbruik_cat1 = df.groupby('categorie1').jaarverbruik.sum()
 
-df_values = pd.DataFrame({'Jaar' : [2024,2030,2035,2050],
-'Aantal trucks' : [df['trucks'].sum(), (df['trucks'].sum() - int(0.16*df['trucks'].sum())), (df['trucks'].sum() - int(0.42*df['trucks'].sum())), (df['trucks'].sum() - int(0.75*df['trucks'].sum()))],
-'Aantal bestelwagens' : [df['bestelbussen'].sum(),(df['bestelbussen'].sum() - int(0.20*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - int(0.50*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - (1.0*df['bestelbussen'].sum()))],
-'Aantal e-trucks' : [df['etrucks'].sum(), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.16*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.42*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + (0.75*df['trucks'].sum()))],
-'Aantal e-bestelwagens': [df['ebestel'].sum(),(df['ebestel'].sum() + int(0.20*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(0.50*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(1.0*df['bestelbussen'].sum()))]})
-
-st.sidebar.write('Totale aantallen voertuigen')
-df_values = st.sidebar.data_editor(df_values)
-
 # Page 1: Text, Images, and Tables
 if page == "Page 1: Info & Tables":
     st.title("Welkom op het dashboard van Sloterdijk Poort Noord")
@@ -74,6 +65,15 @@ if page == "Page 1: Info & Tables":
 # Page 2: Interactive Stacked Area Graph
 elif page == "Page 2: Interactive Graph":
     st.title("Inzicht in de bronnen en piekmomenten van de elektriciteitsvraag")
+	
+    df_values = pd.DataFrame({'Jaar' : [2024,2030,2035,2050],
+        'Aantal trucks' : [df['trucks'].sum(), (df['trucks'].sum() - int(0.16*df['trucks'].sum())), (df['trucks'].sum() - int(0.42*df['trucks'].sum())), (df['trucks'].sum() - int(0.75*df['trucks'].sum()))],
+        'Aantal bestelwagens' : [df['bestelbussen'].sum(),(df['bestelbussen'].sum() - int(0.20*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - int(0.50*df['bestelbussen'].sum())),(df['bestelbussen'].sum() - (1.0*df['bestelbussen'].sum()))],
+        'Aantal e-trucks' : [df['etrucks'].sum(), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.16*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + int(0.42*df['trucks'].sum())), (df['etrucks'].sum() + df['etruck_extra'].sum() + (0.75*df['trucks'].sum()))],
+        'Aantal e-bestelwagens': [df['ebestel'].sum(),(df['ebestel'].sum() + int(0.20*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(0.50*df['bestelbussen'].sum())),(df['ebestel'].sum() + int(1.0*df['bestelbussen'].sum()))]})
+
+    st.write('Totale aantallen voertuigen')
+    df_values = st.data_editor(df_values)
 	
     st.write("## De ontwikkeling van de energievraag over de tijd")
 	
@@ -138,12 +138,34 @@ elif page == "Page 2: Interactive Graph":
     verbruik_uur_panden = verbruik_15min_panden.resample('1h').sum()
     verbruik_uur_totaal = pd.concat([verbruik_uur_panden, verbruik_uur_mobiliteit], axis=1)	
 
+    def select_max_row(df_day):
+        st.write(df_day)
+        i = df_day['row_sum'].idxmax()
+        return df_day.iloc[i]
+	
+	
+
     if resolution == "Hourly":
         time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01-01':'2023-01-07'].reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Daily":
-        time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01'].resample('1d').max().reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
+        _d = verbruik_uur_totaal.index.floor('1d')
+        _idxmax = verbruik_uur_totaal.assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).groupby(_d)['row_sum'].idxmax()
+        time_series_data = (
+         verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[_idxmax, :]
+         .set_index(_idxmax.index)
+         .loc['2023-01']
+         .reset_index()
+         ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
+        #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01'].assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1d').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Monthly":
-        time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).resample('1M').max().reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
+        _m = pd.DatetimeIndex(pd.Series(verbruik_uur_totaal.index).apply(lambda t: pd.Timestamp(t.year,t.month,1)))
+        _idxmax = verbruik_uur_totaal.assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).groupby(_m)['row_sum'].idxmax()
+        time_series_data = (
+         verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[_idxmax, :]
+         .set_index(_idxmax.index)
+         .reset_index()
+         ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen').drop_duplicates()
+        #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1M').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
 
 
     # Plot stacked area chart
