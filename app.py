@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from datetime import timedelta
 
 # Page configuration
 st.set_page_config(page_title="Two-Page Dashboard", layout="wide")
@@ -96,14 +97,43 @@ if page == "Page 1: Info & Tables":
     cols[2].markdown(icon_bakwagen_html, unsafe_allow_html=True)
     cols[3].markdown(icon_bestelwagen_html, unsafe_allow_html=True)
 
-    st.title('Dataset')
+    st.header('Dataset')
     st.write("Hieronder staat de dataset achter het dashboard. Deze is verzameld door studenten logistiek en waar nodig aangevuld met sectorspecifieke getallen van het CBS.")
 
-    st.write(df[['bedrijfsnaam','categorie1','categorie2','fossiel trucks', 'fossiel bakwagens','fossiel bestelbussen','etrucks','ebakwagens','ebestel','jaarverbruik pand']].rename(columns = {'categorie1' : 'hoofdcategorie', 'categorie2' : 'subcategorie','jaarverbruik pand' : 'jaarverbruik pand (kWh)'}))
+    st.write((df[['bedrijfsnaam','categorie1','categorie2','fossiel trucks', 'fossiel bakwagens','fossiel bestelbussen','etrucks','ebakwagens','ebestel','jaarverbruik pand']].
+              rename(columns = {'categorie1' : 'hoofdcategorie', 'categorie2' : 'subcategorie','jaarverbruik pand' : 'jaarverbruik pand (kWh)'}).
+              assign(**{'jaarverbruik pand (kWh)' : lambda d: d['jaarverbruik pand (kWh)'].astype(int)})))
 	
-    st.write('Daarnaast zijn de volgende jaar kilometrages gebruikt voor de trucks, bakwagens en bestelbussen:')
+    st.header('Hierbij zijn de volgende aannames gedaan:')
+    st.write('Voor onbekende jaarkilometrages zijn de CBS gemiddelden uit 2020 ingevuld (https://opendata.cbs.nl/#/CBS/nl/dataset/84651NED/table en https://www.cbs.nl/nl-nl/visualisaties/verkeer-en-vervoer/verkeer/verkeersprestaties-bestelautos).')
+    st.write(f'Voor het verbruik van de verschillende transportvormen zijn de volgende waardes gebruikt: {verbruik_ebestel}kWu/km voor bestelbussen, {verbruik_ebakwagen}kWu/km voor bakwagens en {verbruik_etruck}kWu/km voor trucks.')
+    st.write('In het geval van onbekend jaarverbuik van de panden is een sector gemiddelde per m2 (https://www.cbs.nl/nl-nl/cijfers/detail/83374NED) ingevuld keer het pandoppervlak zoals bekend in de BAG. Wanneer verschillende bedrijven een pand delen is de bijdrage gelijk verdeeld over de deelnemende partijen.')
+    st.write('Het totale jaarverbruik voor de panden is vertaald naar een vermogen op ieder uur van de dag door middel van gemiddelde verbruiksprofielen van Liander (https://www.liander.nl/over-ons/open-data - Verbruiksprofielen grootverbruikaansluitingen elektriciteit). Voor de bijdrage van elektrisch transport zijn profielen gebruikt aangeleverd door de bedrijven, waarbij missende waardes zijn ingevuld met de gemiddelde dagprofielen vanuit het ZEC laadmodel (https://laadmodel-zec.streamlit.app/).') 
+    st.write('De gebruikte profielen zijn in onderstaande figuur gevisualiseerd.')
+    
+    # Time slider
+    min_time = profielen.index.min().date()
+    max_time = profielen.index.max().date()
+    time_range = st.slider(
+        "Select Time Window",
+        min_value=min_time,
+        max_value=max_time,
+        value=(pd.to_datetime('2023-01-01').date(),pd.to_datetime('2023-01-14').date()),
+        format="YYYY-MM-DD",
+    )
+
+    # Column selector
+    available_categories = profielen.columns[1:]
+    selected_category = st.selectbox(
+        "Select Categories to Display",
+        options=available_categories    )
+    
+    fig_profielen = px.line(
+        profielen.loc[time_range[0]:time_range[1]].reset_index(), x="datetime", y=selected_category)
+    st.plotly_chart(fig_profielen, use_container_width=True)
 	
-    st.write(jaarverbruik.reset_index())
+
+
 
 
 # Page 2: Interactive Stacked Area Graph
@@ -206,15 +236,24 @@ elif page == "Page 2: Interactive Graph":
         return df_day.iloc[i]
 	
     if resolution == "Hourly":
-        time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01-01':'2023-01-07'].reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
+        week_selector = st.select_slider(
+            "Select Week",
+            options = pd.date_range(pd.to_datetime('2023-01-01'),pd.to_datetime('2023-12-24'),freq = '1d'))
+
+        time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[week_selector:week_selector + timedelta(weeks = 1)].reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
     elif resolution == "Daily":
+
+        month_selector = st.select_slider(
+            "Select Month",
+            options = pd.date_range(pd.to_datetime('2023-01-01').date(),pd.to_datetime('2023-12-24').date(),freq = '1W'))
+
         _d = verbruik_uur_totaal.index.floor('1d')
         _idxmax = verbruik_uur_totaal.assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).groupby(_d)['row_sum'].idxmax()
         time_series_data = (
          verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[_idxmax, :]
          .set_index(_idxmax.index)
-         .loc['2023-01']
+         .loc[month_selector:month_selector + timedelta(weeks = 4)]
          .reset_index()
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
@@ -250,7 +289,7 @@ elif page == "Page 2: Interactive Graph":
     # Plot stacked area chart
     fig = px.pie(
         df_tijd_totaal.loc[lambda d: d.jaar == year],  values="energie", names="bron",
-        title=f"Energievraag per bron"
+        title=f"Verdeling energievraag per bron (kWu)"
     )
     fig.update_xaxes(showticklabels=False)
     st.plotly_chart(fig, use_container_width=True)
