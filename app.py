@@ -13,7 +13,7 @@ page = st.sidebar.radio("Go to", ["Page 1: Info & Tables", "Page 2: Interactive 
 
 #terrein_keuze = st.sidebar.radio("Selecteer terrein", ["Sloterdijk Poort Noord", "Dutch Fresh Port"])
 
-verbruik_etruck = 1.2
+verbruik_etruck = 1.26
 verbruik_ebakwagen = 0.9
 verbruik_ebestel = 0.4
 
