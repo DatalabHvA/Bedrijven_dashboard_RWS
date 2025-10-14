@@ -222,7 +222,8 @@ elif page == "Page 2: Interactive Graph":
                                       index = profielen.index)
     # Resolution selection
 	
-    verbruik_uur_panden = pd.DataFrame({'INDUSTRIE pand' : profielen['INDUSTRIE']*verbruik_cat1['INDUSTRIE'],
+    verbruik_uur_panden = pd.DataFrame({'SLIGRO pand' : profielen['SLIGRO_PAND']*verbruik_cat1['SLIGRO_PAND'],
+                                    'INDUSTRIE pand' : profielen['INDUSTRIE']*verbruik_cat1['INDUSTRIE'],
                                     'KANTOOR_ONDERWIJS pand' : profielen['KANTOOR_ONDERWIJS']*verbruik_cat1['KANTOOR/ONDERWIJS'],
                                     'LOGISTIEK pand' : profielen['LOGISTIEK']*verbruik_cat1['LOGISTIEK'],
                                     'OVERIG pand' : profielen['OVERIG']*verbruik_cat1['OVERIG']},
