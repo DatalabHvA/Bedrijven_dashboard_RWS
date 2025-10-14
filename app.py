@@ -21,7 +21,7 @@ verbruik_ebestel = 0.4
 #    df = pd.read_excel('data_template Sloterdijk Poort Noord.xlsx').dropna(subset = 'bedrijfsnaam')
 #elif terrein_keuze == "Dutch Fresh Port":
 #    df = pd.read_excel('data_template DFP V2.xlsx').dropna(subset = 'bedrijfsnaam')
-df = pd.read_excel('dfp_master.xlsx').dropna(subset = 'bedrijfsnaam')
+df = pd.read_excel('data_template_Sloterdijk_Poort_Noord_v2.xlsx').dropna(subset = 'bedrijfsnaam')
 
 df['etrucks_2025'] = df['etrucks']
 df['etrucks_2030'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + (0.16*df['fossiel trucks']))
