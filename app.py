@@ -21,7 +21,7 @@ verbruik_ebestel = 0.4
 #    df = pd.read_excel('data_template Sloterdijk Poort Noord.xlsx').dropna(subset = 'bedrijfsnaam')
 #elif terrein_keuze == "Dutch Fresh Port":
 #    df = pd.read_excel('data_template DFP V2.xlsx').dropna(subset = 'bedrijfsnaam')
-df = pd.read_excel('data_template_Sloterdijk_Poort_Noord_v2.xlsx').dropna(subset = 'bedrijfsnaam')
+df = pd.read_excel('dfp_master.xlsx').dropna(subset = 'bedrijfsnaam')
 
 df['etrucks_2025'] = df['etrucks']
 df['etrucks_2030'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + (0.16*df['fossiel trucks']))
@@ -65,7 +65,7 @@ verbruik_cat1 = df.groupby('categorie1')['jaarverbruik pand'].sum()
 
 # Page 1: Text, Images, and Tables
 if page == "Page 1: Info & Tables":
-    st.title("Welkom op het dashboard van Sloterdijk Poort Noord")
+    st.title("Welkom op het dashboard van Dutch Fresh Port")
     
 	#kolommen maken voor pagina
     cols = st.columns(4)
@@ -286,11 +286,11 @@ elif page == "Page 2: Interactive Graph":
     )
     st.plotly_chart(fig, use_container_width=True)
 	
-    # Plot stacked area chart
-    fig = px.pie(
-        df_tijd_totaal.loc[lambda d: d.jaar == year],  values="energie", names="bron",
-        title=f"Verdeling energievraag per bron (kWu)"
-    )
-    fig.update_xaxes(showticklabels=False)
-    st.plotly_chart(fig, use_container_width=True)
+    # Plot pie chart - hidden for RWS stakeholder meeting 15-10-2025
+    #fig = px.pie(
+    #    df_tijd_totaal.loc[lambda d: d.jaar == year],  values="energie", names="bron",
+    #    title=f"Verdeling energievraag per bron (kWu)"
+    #)
+    #fig.update_xaxes(showticklabels=False)
+    #st.plotly_chart(fig, use_container_width=True)
 	
