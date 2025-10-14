@@ -65,7 +65,7 @@ verbruik_cat1 = df.groupby('categorie1')['jaarverbruik pand'].sum()
 
 # Page 1: Text, Images, and Tables
 if page == "Page 1: Info & Tables":
-    st.title("Welkom op het dashboard van Dutch Fresh Port")
+    st.title("Welkom op het dashboard van Sloterijk Poort Noord")
     
 	#kolommen maken voor pagina
     cols = st.columns(4)
@@ -285,6 +285,15 @@ elif page == "Page 2: Interactive Graph":
         title=f"Energievraag over de tijd ({resolution} Resolution)",
         labels={'Vermogen' : ylabel}
     )
+    fig.update_xaxes(
+    type="date",
+    tickformatstops=[
+        dict(dtickrange=[None, 1000*60*60*24], value="%d %b %H:%M"),      # hours
+        dict(dtickrange=[1000*60*60*24, 1000*60*60*24*30], value="%d %b"),  # days
+        dict(dtickrange=[1000*60*60*24*30, "M12"], value="%b"),      # months
+        dict(dtickrange=["M12", None], value="%Y")                   # beyond a year, still just
+    ]
+	)
     st.plotly_chart(fig, use_container_width=True)
 	
     # Plot pie chart - hidden for RWS stakeholder meeting 15-10-2025
