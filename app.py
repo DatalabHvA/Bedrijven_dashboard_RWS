@@ -64,7 +64,7 @@ verbruik_cat1 = df.groupby('categorie1')['jaarverbruik pand'].sum()
 
 
 # Page 1: Text, Images, and Tables
-if page == "Page 1: Info & Tables":
+if page == "Pagina 1: Info & Tabellen":
     st.title("Welkom op het dashboard van Sloterijk Poort Noord")
     
 	#kolommen maken voor pagina
@@ -137,7 +137,7 @@ if page == "Page 1: Info & Tables":
 
 
 # Page 2: Interactive Stacked Area Graph
-elif page == "Page 2: Interactive Graph":
+elif page == "Pagina 2: Interactieve Grafiek":
     st.title("Inzicht in de bronnen en piekmomenten van de elektriciteitsvraag")
 	
     df_values = pd.DataFrame({'Jaar' : [2025,2030,2035,2050],
