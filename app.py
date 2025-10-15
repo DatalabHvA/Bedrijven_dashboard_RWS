@@ -8,8 +8,8 @@ from datetime import timedelta
 st.set_page_config(page_title="Two-Page Dashboard", layout="wide")
 
 # Navigation menu
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Page 1: Info & Tables", "Page 2: Interactive Graph"])
+st.sidebar.title("Navigatie")
+page = st.sidebar.radio("Ga naar", ["Pagina 1: Info & Tabellen", "Pagina 2: Interactieve Grafiek"])
 
 #terrein_keuze = st.sidebar.radio("Selecteer terrein", ["Sloterdijk Poort Noord", "Dutch Fresh Port"])
 
