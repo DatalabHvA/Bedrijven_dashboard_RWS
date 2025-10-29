@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from datetime import timedelta
 
 # Page configuration
@@ -21,47 +22,55 @@ verbruik_ebestel = 0.4
 #    df = pd.read_excel('data_template Sloterdijk Poort Noord.xlsx').dropna(subset = 'bedrijfsnaam')
 #elif terrein_keuze == "Dutch Fresh Port":
 #    df = pd.read_excel('data_template DFP V2.xlsx').dropna(subset = 'bedrijfsnaam')
-df = pd.read_excel('data_template_Sloterdijk_Poort_Noord_v2.xlsx').dropna(subset = 'bedrijfsnaam')
-
-df['etrucks_2025'] = df['etrucks']
-df['etrucks_2030'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + (0.16*df['fossiel trucks']))
-df['etrucks_2035'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + df['etrucks_uitbreiding_2035']+ (0.42*df['fossiel trucks']))
-df['etrucks_2050'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + df['etrucks_uitbreiding_2035']+ df['etrucks_uitbreiding_2040']+ (0.75*df['fossiel trucks']))
-df['ebakwagens_2025'] = df['ebakwagens']
-df['ebakwagens_2030'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + (0.16*df['fossiel bakwagens']))
-df['ebakwagens_2035'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + df['ebakwagens_uitbreiding_2035']+ (0.42*df['fossiel bakwagens']))
-df['ebakwagens_2050'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + df['ebakwagens_uitbreiding_2035']+ df['ebakwagens_uitbreiding_2040']+ (0.75*df['fossiel bakwagens']))
-df['ebestel_2025'] = df['ebestel']
-df['ebestel_2030'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + (0.20*df['fossiel bestelbussen']))
-df['ebestel_2035'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + df['ebestelbussen_uitbreiding_2035']+ (0.50*df['fossiel bestelbussen']))
-df['ebestel_2050'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + df['ebestelbussen_uitbreiding_2035']+ df['ebestelbussen_uitbreiding_2040']+ (1*df['fossiel bestelbussen']))
-
-df['etrucks_2025_verbruik'] = df['etrucks'] * df['jaarkilometrage_truck'] * verbruik_etruck
-df['etrucks_2030_verbruik'] = df['etrucks_2030'] * df['jaarkilometrage_truck'] * verbruik_etruck
-df['etrucks_2035_verbruik'] = df['etrucks_2035'] * df['jaarkilometrage_truck'] * verbruik_etruck
-df['etrucks_2050_verbruik'] = df['etrucks_2050'] * df['jaarkilometrage_truck'] * verbruik_etruck
-df['ebakwagens_2025_verbruik'] = df['ebakwagens'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
-df['ebakwagens_2030_verbruik'] = df['ebakwagens_2030'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
-df['ebakwagens_2035_verbruik'] = df['ebakwagens_2035'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
-df['ebakwagens_2050_verbruik'] = df['ebakwagens_2050'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen  
-df['ebestel_2025_verbruik'] = df['ebestel'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
-df['ebestel_2030_verbruik'] = df['ebestel_2030'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
-df['ebestel_2035_verbruik'] = df['ebestel_2035'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
-df['ebestel_2050_verbruik'] = df['ebestel_2050'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
-
-profielen = pd.read_excel('profielen_RWS_v2.xlsx')
-profielen['datetime'] = pd.to_datetime(profielen['datetime'])
-profielen.set_index('datetime', inplace = True)
+@st.cache_data
+def load_data():
+    df = pd.read_excel('data_template_Sloterdijk_Poort_Noord_v2.xlsx').dropna(subset = 'bedrijfsnaam')
+    oplossing = pd.read_csv('oplossing.csv')
+    oplossing['Datum'] = pd.to_datetime(oplossing['Datum'])
+    oplossing = oplossing.set_index('Datum')['Netwerk levering'].resample('1h').sum()
 
 
-jaarverbruik = pd.read_csv('table__84651NED.csv').loc[lambda d: d.Perioden == '2020*'][["Vrachtauto's en trekkers gewicht", 'Gemiddeld jaarkilometrage Totaal gemiddeld jaarkilometrage (aantal\xa0km)']]
-jaarverbruik.columns = ['type','kms/jaar']
-jaarverbruik['kms/jaar'] = jaarverbruik['kms/jaar'].astype(str).str.replace('.','').astype(int)
-jaarverbruik = pd.concat([jaarverbruik, pd.DataFrame({'type' : 'bestelbus','kms/jaar' : 18000}, index = [0])], ignore_index = True)
-jaarverbruik.set_index('type', inplace = True)
+    df['etrucks_2025'] = df['etrucks']
+    df['etrucks_2030'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + (0.16*df['fossiel trucks']))
+    df['etrucks_2035'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + df['etrucks_uitbreiding_2035']+ (0.42*df['fossiel trucks']))
+    df['etrucks_2050'] = (df['etrucks'] + df['etrucks_uitbreiding_2030'] + df['etrucks_uitbreiding_2035']+ df['etrucks_uitbreiding_2040']+ (0.75*df['fossiel trucks']))
+    df['ebakwagens_2025'] = df['ebakwagens']
+    df['ebakwagens_2030'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + (0.16*df['fossiel bakwagens']))
+    df['ebakwagens_2035'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + df['ebakwagens_uitbreiding_2035']+ (0.42*df['fossiel bakwagens']))
+    df['ebakwagens_2050'] = (df['ebakwagens'] + df['ebakwagens_uitbreiding_2030'] + df['ebakwagens_uitbreiding_2035']+ df['ebakwagens_uitbreiding_2040']+ (0.75*df['fossiel bakwagens']))
+    df['ebestel_2025'] = df['ebestel']
+    df['ebestel_2030'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + (0.20*df['fossiel bestelbussen']))
+    df['ebestel_2035'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + df['ebestelbussen_uitbreiding_2035']+ (0.50*df['fossiel bestelbussen']))
+    df['ebestel_2050'] = (df['ebestel'] + df['ebestelbussen_uitbreiding_2030'] + df['ebestelbussen_uitbreiding_2035']+ df['ebestelbussen_uitbreiding_2040']+ (1*df['fossiel bestelbussen']))
 
-verbruik_cat1 = df.groupby('categorie1')['jaarverbruik pand'].sum()
+    df['etrucks_2025_verbruik'] = df['etrucks'] * df['jaarkilometrage_truck'] * verbruik_etruck
+    df['etrucks_2030_verbruik'] = df['etrucks_2030'] * df['jaarkilometrage_truck'] * verbruik_etruck
+    df['etrucks_2035_verbruik'] = df['etrucks_2035'] * df['jaarkilometrage_truck'] * verbruik_etruck
+    df['etrucks_2050_verbruik'] = df['etrucks_2050'] * df['jaarkilometrage_truck'] * verbruik_etruck
+    df['ebakwagens_2025_verbruik'] = df['ebakwagens'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
+    df['ebakwagens_2030_verbruik'] = df['ebakwagens_2030'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
+    df['ebakwagens_2035_verbruik'] = df['ebakwagens_2035'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen
+    df['ebakwagens_2050_verbruik'] = df['ebakwagens_2050'] * df['jaarkilometrage_bakwagen'] * verbruik_ebakwagen  
+    df['ebestel_2025_verbruik'] = df['ebestel'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
+    df['ebestel_2030_verbruik'] = df['ebestel_2030'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
+    df['ebestel_2035_verbruik'] = df['ebestel_2035'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
+    df['ebestel_2050_verbruik'] = df['ebestel_2050'] * df['jaarkilometrage_bestel'] * verbruik_ebestel
 
+    profielen = pd.read_excel('profielen_RWS_v2.xlsx')
+    profielen['datetime'] = pd.to_datetime(profielen['datetime'])
+    profielen.set_index('datetime', inplace = True)
+
+
+    jaarverbruik = pd.read_csv('table__84651NED.csv').loc[lambda d: d.Perioden == '2020*'][["Vrachtauto's en trekkers gewicht", 'Gemiddeld jaarkilometrage Totaal gemiddeld jaarkilometrage (aantal\xa0km)']]
+    jaarverbruik.columns = ['type','kms/jaar']
+    jaarverbruik['kms/jaar'] = jaarverbruik['kms/jaar'].astype(str).str.replace('.','').astype(int)
+    jaarverbruik = pd.concat([jaarverbruik, pd.DataFrame({'type' : 'bestelbus','kms/jaar' : 18000}, index = [0])], ignore_index = True)
+    jaarverbruik.set_index('type', inplace = True)
+
+    verbruik_cat1 = df.groupby('categorie1')['jaarverbruik pand'].sum()
+    return [df, oplossing, profielen, jaarverbruik, verbruik_cat1]
+
+[df, oplossing, profielen, jaarverbruik, verbruik_cat1] = load_data()
 
 # Page 1: Text, Images, and Tables
 if page == "Pagina 1: Info & Tabellen":
@@ -193,6 +202,7 @@ elif page == "Pagina 2: Interactieve Grafiek":
     resolution = cols2[0].radio("Selecteer tijdsresolutie", ["Hourly", "Daily", "Monthly","Yearly"])
     smart = cols2[1].radio("Selecteer laadstrategie", ["Normaal", "Smart charging"])
     year = cols2[2].radio("Selecteer jaar", [2025, 2030, 2035, 2050])
+    show_line = st.checkbox("Toon oplossing mitigerende maatregelen", value=False)
 	
     if smart == "Normaal":
         drop_cols = ['trucks_smart','bakwagens_smart','bestel_smart']
@@ -243,6 +253,8 @@ elif page == "Pagina 2: Interactieve Grafiek":
 
         time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[week_selector:week_selector + timedelta(weeks = 1)].reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
+        oplossings_lijn = oplossing.loc[week_selector:week_selector + timedelta(weeks = 1)].reset_index()
+        oplossings_lijn.index = oplossings_lijn['Datum']
     elif resolution == "Daily":
 
         month_selector = st.select_slider(
@@ -258,6 +270,9 @@ elif page == "Pagina 2: Interactieve Grafiek":
          .reset_index()
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
+        oplossings_lijn = oplossing.reset_index().groupby(_d).max().loc[month_selector:month_selector + timedelta(weeks = 4)]
+
+
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01'].assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1d').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Monthly":
         _m = pd.DatetimeIndex(pd.Series(verbruik_uur_totaal.index).apply(lambda t: pd.Timestamp(t.year,t.month,1)))
@@ -268,6 +283,8 @@ elif page == "Pagina 2: Interactieve Grafiek":
          .reset_index()
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen').drop_duplicates()
         ylabel = 'Vermogen (kW)'
+        oplossings_lijn = oplossing.reset_index().groupby(_m).max()
+
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1M').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Yearly":
         time_series_data = df_tijd_totaal.merge(df[['bedrijfsnaam','categorie1']], left_on = 'bron', right_on = 'bedrijfsnaam', how = 'left')
@@ -285,6 +302,15 @@ elif page == "Pagina 2: Interactieve Grafiek":
         title=f"Energievraag over de tijd ({resolution} Resolution)",
         labels={'Vermogen' : ylabel}
     )
+    if (year == 2050) & (resolution != "Yearly") & (show_line): 
+        fig.add_trace(go.Scatter(
+            x=oplossings_lijn.index,
+            y=oplossings_lijn['Netwerk levering'],
+            mode='lines',
+            name='Netwerk gebruik oplossing',
+            line=dict(color='black', width=2)
+        ))
+
     fig.update_xaxes(
     type="date",
     tickformatstops=[
@@ -295,7 +321,6 @@ elif page == "Pagina 2: Interactieve Grafiek":
     ]
 	)
     st.plotly_chart(fig, use_container_width=True)
-	
     # Plot pie chart - hidden for RWS stakeholder meeting 15-10-2025
     #fig = px.pie(
     #    df_tijd_totaal.loc[lambda d: d.jaar == year],  values="energie", names="bron",
