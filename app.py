@@ -27,7 +27,7 @@ def load_data():
     df = pd.read_excel('data_template_Sloterdijk_Poort_Noord_v2.xlsx').dropna(subset = 'bedrijfsnaam')
     oplossing = pd.read_csv('oplossing.csv')
     oplossing['Datum'] = pd.to_datetime(oplossing['Datum'])
-    oplossing = oplossing.set_index('Datum')['Netwerk levering'].resample('1h').sum()
+    oplossing = oplossing.rename(columns = {'Datum' : 'datetime'}).set_index('datetime').resample('1h').sum()
 
 
     df['etrucks_2025'] = df['etrucks']
@@ -202,7 +202,7 @@ elif page == "Pagina 2: Interactieve Grafiek":
     resolution = cols2[0].radio("Selecteer tijdsresolutie", ["Hourly", "Daily", "Monthly","Yearly"])
     smart = cols2[1].radio("Selecteer laadstrategie", ["Normaal", "Smart charging"])
     year = cols2[2].radio("Selecteer jaar", [2025, 2030, 2035, 2050])
-    show_line = st.checkbox("Toon oplossing mitigerende maatregelen", value=False)
+    show_line = st.checkbox("Toon oplossing mitigerende maatregelen (alleen in 2050)", value=False)
 	
     if smart == "Normaal":
         drop_cols = ['trucks_smart','bakwagens_smart','bestel_smart']
@@ -239,8 +239,14 @@ elif page == "Pagina 2: Interactieve Grafiek":
                                     'OVERIG pand' : profielen['OVERIG']*verbruik_cat1['OVERIG']},
                                     index = profielen.index)
     #verbruik_uur_panden = verbruik_15min_panden.resample('1h').sum()
-    verbruik_uur_totaal = pd.concat([verbruik_uur_panden, verbruik_uur_mobiliteit], axis=1)	
 
+    verbruik_oplossing = pd.DataFrame({'Zonnepanelen' : -oplossing['Gebruik opwekbronnen'],
+                                   'Batterij laden' : oplossing['Batterij 1 laden'],
+                                   'Batterij ontladen' : -oplossing['Batterij 1 ontladen']},
+                                   index = oplossing.index)
+
+    verbruik_uur_totaal = pd.concat([verbruik_uur_panden, verbruik_uur_mobiliteit, verbruik_oplossing], axis=1)	
+    
     def select_max_row(df_day):
         st.write(df_day)
         i = df_day['row_sum'].idxmax()
@@ -253,8 +259,7 @@ elif page == "Pagina 2: Interactieve Grafiek":
 
         time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc[week_selector:week_selector + timedelta(weeks = 1)].reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
-        oplossings_lijn = oplossing.loc[week_selector:week_selector + timedelta(weeks = 1)].reset_index()
-        oplossings_lijn.index = oplossings_lijn['Datum']
+
     elif resolution == "Daily":
 
         month_selector = st.select_slider(
@@ -270,8 +275,6 @@ elif page == "Pagina 2: Interactieve Grafiek":
          .reset_index()
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
-        oplossings_lijn = oplossing.reset_index().groupby(_d).max().loc[month_selector:month_selector + timedelta(weeks = 4)]
-
 
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01'].assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1d').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Monthly":
@@ -283,7 +286,6 @@ elif page == "Pagina 2: Interactieve Grafiek":
          .reset_index()
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen').drop_duplicates()
         ylabel = 'Vermogen (kW)'
-        oplossings_lijn = oplossing.reset_index().groupby(_m).max()
 
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1M').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Yearly":
@@ -295,21 +297,51 @@ elif page == "Pagina 2: Interactieve Grafiek":
         ylabel = 'Energie (kWu)'
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1M').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
 
-
     # Plot stacked area chart
-    fig = px.area(
-        time_series_data, x="datetime", y="Vermogen", color="bron",
-        title=f"Energievraag over de tijd ({resolution} Resolution)",
-        labels={'Vermogen' : ylabel}
-    )
     if (year == 2050) & (resolution != "Yearly") & (show_line): 
+
+        fig = go.Figure()
+
+        df_pos = time_series_data.loc[lambda d: ~d.bron.isin(['Batterij ontladen','Zonnepanelen'])].reset_index()
+        for var in df_pos["bron"].unique():
+            subset = df_pos[df_pos["bron"] == var]
+            fig.add_trace(go.Scatter(
+                x=subset["datetime"],
+                y=subset["Vermogen"],
+                stackgroup="positive",  # independent stack group
+                name=var,
+                mode="lines",
+                line=dict(width=0.5)
+            ))
+            
+        df_neg = time_series_data.loc[lambda d: d.bron.isin(['Batterij ontladen','Zonnepanelen'])].reset_index()
+        for var in df_neg["bron"].unique():
+            subset = df_neg[df_neg["bron"] == var]
+            fig.add_trace(go.Scatter(
+                x=subset["datetime"],
+                y=subset["Vermogen"],
+                stackgroup="negative",  # independent stack group
+                name=var,
+                mode="lines",
+                line=dict(width=0.5)
+            ))
+        df_total = time_series_data.groupby('datetime').Vermogen.sum().reset_index()
         fig.add_trace(go.Scatter(
-            x=oplossings_lijn.index,
-            y=oplossings_lijn['Netwerk levering'],
-            mode='lines',
-            name='Netwerk gebruik oplossing',
-            line=dict(color='black', width=2)
+            x=df_total["datetime"],
+            y=df_total["Vermogen"],
+            mode="lines",
+            name="Netgebruik",
+            line=dict(color="black", width=2)
         ))
+
+
+    else:
+        fig = px.area(
+            time_series_data.loc[lambda d: ~d.bron.isin(['Batterij laden','Batterij ontladen','Zonnepanelen'])], x="datetime", y="Vermogen", color="bron",
+            title=f"Energievraag over de tijd ({resolution} Resolution)",
+            labels={'Vermogen' : ylabel}
+        )
+
 
     fig.update_xaxes(
     type="date",
