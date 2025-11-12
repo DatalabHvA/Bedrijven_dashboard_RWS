@@ -278,7 +278,6 @@ elif page == "Pagina 2: Interactieve Grafiek":
          ).melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
         ylabel = 'Vermogen (kW)'
         oplossingslijn = oplossing.groupby(_d)['Netwerk levering'].max().loc[month_selector:month_selector + timedelta(weeks = 4)].reset_index()
-        st.write(oplossingslijn)
 
         #time_series_data = verbruik_uur_totaal.drop(drop_cols, axis = 1).loc['2023-01'].assign(row_sum = lambda d: d.sum(numeric_only=True, axis=1)).resample('1d').apply(select_max_row).reset_index().melt(id_vars = 'datetime', var_name = 'bron', value_name = 'Vermogen')
     elif resolution == "Monthly":
@@ -315,7 +314,6 @@ elif page == "Pagina 2: Interactieve Grafiek":
         "LOGISTIEK pand": "#6BAED6",          # light blue
         "KANTOOR_ONDERWIJS pand": "#5531A3",  # green
     }
-
     # Plot stacked area chart
     if (year == 2050) & (resolution != "Yearly") & (show_line): 
 
@@ -346,7 +344,7 @@ elif page == "Pagina 2: Interactieve Grafiek":
             ))
         fig.add_trace(go.Scatter(
             x=oplossingslijn['datetime'],
-            y=oplossing["Netwerk levering"],
+            y=oplossingslijn["Netwerk levering"],
             mode="lines",
             name="Netgebruik",
             line=dict(color="black", width=2)
