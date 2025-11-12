@@ -308,6 +308,9 @@ elif page == "Pagina 2: Interactieve Grafiek":
         "trucks": "#8B0000",                  # dark red
         "bakwagens": "#E6550D",               # orange-red
         "bestel": "#FD8D3C",                  # light orange
+        "trucks_smart": "#8B0000",            # dark red
+        "bakwagens_smart": "#E6550D",         # orange-red
+        "bestel_smart": "#FD8D3C",            # light orange
         "DISTRIBUTIE pand": "#3182BD",        # medium blue
         "OVERIG pand": "#969696",             # grey
         "INDUSTRIE pand": "#08519C",          # dark blue
